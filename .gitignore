@@ -10,3 +10,8 @@ __pycache__/
 *.csv
 *.zip
 
+# Keep real patient data ignored, but include the small teaching example.
+!examples/neuralynx_test/
+!examples/neuralynx_test/**
+!examples/neuralynx_test/**/*.ncs
+!examples/neuralynx_test/**/*.nev
