@@ -218,10 +218,15 @@ Example-data usage:
 
 ```matlab
 addpath('/path/to/repository/scripts/matlab/io')
+addpath('/path/to/repository/scripts/matlab/inspection')
 setenv('FIELDTRIP_DIR', '/path/to/fieldtrip')
 
 collData = preprocessMat();
+plotExampleData();
 ```
+
+`preprocessMat()` loads the example files into a `collData` structure.
+`plotExampleData()` creates a quick two-channel trace plot and saves it to `examples/plots/matlab_example_trace.png`.
 
 By default, `project_paths.m` points to:
 

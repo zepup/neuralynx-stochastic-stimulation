@@ -39,7 +39,7 @@ SUBJECT = "SUBJECT_ID"
 
 
 # Lines in config files:
-# -SetStimulationSequenceEntry "13" 0  B:\mltask\stochasticStimV2\e0043_boxA\wavFiles\160us_1Hz.wav 3 10
+# -SetStimulationSequenceEntry "13" 0  B:\mltask\stochasticStimV2\PATIENT_ID_boxA\wavFiles\160us_1Hz.wav 3 10
 CFG_LINE_RE = re.compile(
     r'-SetStimulationSequenceEntry\s+"(?P<contact>\d+)"\s+'
     r'(?P<offset>\d+)\s+(?P<wavpath>\S+)\s+(?P<chan>\d+)\s+(?P<intensity>-?\d+)'
