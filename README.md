@@ -203,6 +203,46 @@ The retained MATLAB scripts expect:
 - MATLAB
 - FieldTrip, with Neuralynx-compatible readers available through `ft_read_header`, `ft_read_data`, and `ft_read_event`
 
+### MATLAB Path Setup
+
+The MATLAB scripts are set up to read the bundled example data first. The example folder contains only:
+
+- `LAMY1.ncs`
+- `LPAR1.ncs`
+- `Events.nev`
+- `Condition_1.cfg`
+
+It does not require an anatomy spreadsheet. This is intended only to help students and collaborators become familiar with the Neuralynx file format.
+
+Example-data usage:
+
+```matlab
+addpath('/path/to/repository/scripts/matlab/io')
+setenv('FIELDTRIP_DIR', '/path/to/fieldtrip')
+
+collData = preprocessMat();
+```
+
+By default, `project_paths.m` points to:
+
+```text
+examples/neuralynx_test/1 config loop
+```
+
+Optional real-data override:
+
+```matlab
+setenv('NCS_PROJECT_DATA_DIR', '/path/to/PatientData/byPatient/Epilepsy/PATIENT_ID/2026-03-15/stochasticStim')
+setenv('NCS_PROJECT_ANATOMY_FILE', '/path/to/PATIENT_ID_2mm.xlsx')
+
+collData = preprocessMat('PATIENT_ID', '2026-03-15', 'HH:MM:SS', 'HH:MM:SS');
+```
+
+Optional environment variables for real datasets:
+
+- `NCS_PROJECT_OUTPUT_DIR`: where `.mat` and optional `.h5` outputs are written. Defaults to the data folder.
+- `NCS_PROJECT_ANATOMY_FILE`: full path to the anatomy spreadsheet. The example data do not use this.
+
 ## Minimum Steps For A Real Shared Dataset
 
 For a real dataset shared outside this repository, the minimum steps depend on whether `stim_metadata.pkl` already exists.

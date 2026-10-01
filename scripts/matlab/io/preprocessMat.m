@@ -1,13 +1,22 @@
-function collData = preprocessMat()
-%PREPROCESSMAT Load Neuralynx `.ncs` and `.nev` files into one MATLAB structure.
+function collData = preprocessMat(pt, sessionDate, timeStart, timeStop)
+%PREPROCESSMAT Load the bundled Neuralynx example into one MATLAB structure.
 % Main purpose:
-% - identify recording blocks that cover a requested time range
-% - load channel data and event timestamps from Neuralynx files
-% - save a simple MATLAB structure for later inspection
+% - read the small example folder under examples/neuralynx_test/1 config loop
+% - load simple `.ncs` channel files and `Events.nev`
+% - keep the real patient-data path/anatomy workflow as commented guidance
+%
+% Example-data usage:
+%   addpath('/path/to/repository/scripts/matlab/io')
+%   collData = preprocessMat();
+%
+% Optional folder override with the same simple layout:
+%   setenv('NCS_PROJECT_DATA_DIR', '/path/to/folder/with/ncs/nev/cfg')
+%   collData = preprocessMat('PATIENT_ID', 'YYYY-MM-DD', 'HH:MM:SS', 'HH:MM:SS');
 
-clc; clear;
+if nargin < 1 || isempty(pt)
+    pt = 'example_neuralynx_test';
+end
 
-%% meta Data
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'shared'))
 paths = project_paths();
 if ~isempty(paths.fieldtripDir)
@@ -15,127 +24,88 @@ if ~isempty(paths.fieldtripDir)
     ft_defaults
 end
 
-containsRemove=[{'.'},{'..'},{'csf'}, {'choroid-plexus'}, {'hypointensities'}, {'unknown'}, {'Lateral-Ventricle'}];
-
-%% Specific meta data 
-%{
-Because I have task data that has a specific time/date based on the
-epilepsy tracker sheet, i added this here. NLX operates on unix time so i
-needed to be able to convert those task start/end times to unix so things
-were better parsable. Below contains probably a lot of pathways you will
-need to change for your own directories
-
-Notes for reuse:
-- real recording suffixes and event files are often split because each
-  Neuralynx recording block is commonly capped at about 4 hours
-- one stimulation session can span multiple recording labels such as 0029
-  and 0030
-%}
-
-pt='SUBJECT_ID';
-date='YYYY-MM-DD';
-timeStart='HH:MM:SS';
-timeStop='HH:MM:SS';
-% the following 2 lines are in unix microsecond time (same as nlx)
-unixStart = uint64(1e6*posixtime(datetime([date ' ' timeStart])));
-unixEnd =  uint64(1e6*posixtime(datetime([date ' ' timeStop])));
 dataPath = paths.dataDir;
-electrodeTable = readtable(fullfile(paths.dataDir, 'anatomy.xlsx'));
-contactList = electrodeTable(~contains(electrodeTable.Unit, containsRemove),:);
 saveDir = paths.outputDir;
 
-%{
- This looks for files in the range of your task/neural data of interest.
- Not sure how it works when the task spans 2 files because i havent had to
- run into this yet. Keep that in mind. 
-%}
-[startLabel, endLabel]=pullTimeLabels(date, dataPath, timeStart, timeStop, contactList);
-labels = unique({startLabel, endLabel});
+%% Optional real-data anatomy workflow
+% The bundled example has only two `.ncs` files, one `Events.nev`, and one
+% `Condition_1.cfg`, so it does not need an anatomy spreadsheet.
+%
+% For real patient data, uncomment/adapt the block below after setting
+% NCS_PROJECT_ANATOMY_FILE or placing `*_2mm.xlsx` inside the data folder.
+%
+% containsRemove = {'.', '..', 'csf', 'choroid-plexus', ...
+%     'hypointensities', 'unknown', 'Lateral-Ventricle'};
+% electrodeTable = readtable(paths.anatomyFile);
+% contactList = electrodeTable(~contains(electrodeTable.Unit, containsRemove), :);
 
-%% Check for valid contacts
-%{
-Not all contacts are in brain areas we care about. This loops through the
-imaging sheet and checks what files exist as well as if its in an
-interesting area so you dont spend time loading data you dont need. 
-%}
-disp('Checking for existing .ncs files...')
-
-validIdx = false(height(contactList), 1);
-for i = 1:height(contactList)
-    curContact = contactList.contact{i};
-    % Check if *any* file for that contact exists for any label
-    existsFlag = false;
-    for j = 1:length(labels)
-        loadName = fullfile(dataPath, [curContact '_' labels{j} '.ncs']);
-        if isfile(loadName)
-            existsFlag = true;
-            break; % no need to check further labels
-        end
-    end
-    validIdx(i) = existsFlag;
-end
-contactList = contactList(validIdx, :);
-
-%% Compile events
-%{
-a lot of the code that was previously in here was specific to my stop
-signal task. I took that out as it would create unnecessary confusion but
-you would have to edit this for your specific task/stim events. 
-%}
-eventsColl=[];
-for j = 1:length(labels)
-    eventName =[dataPath 'Events_' labels{j} '.nev'];
-    events = struct2table(ft_read_event(eventName));
-    events=events((events.timestamp>=unixStart & events.timestamp<=unixEnd),:);
-    eventsColl=[eventsColl; events];
-    eventsColl=eventsColl((eventsColl.timestamp>=unixStart & eventsColl.timestamp<=unixEnd),:);
+%% Find example Neuralynx files
+ncsFiles = dir(fullfile(dataPath, '*.ncs'));
+if isempty(ncsFiles)
+    error('No .ncs files found in %s', dataPath);
 end
 
-%% Load data using parallel processing to speed up workflow
-%{
-parallel processing does not necessarily need to be implemented but this is
-pretty agonizingly slow. It seems parallelization helps a bit but again
-still slow because matlab
-%}
-delete(gcp('nocreate'))
-numCores = feature('numcores'); 
-c = parcluster('local');           
-disp(c.NumWorkers)                
-parpool('local', numCores - 1)
+channelNames = erase({ncsFiles.name}, '.ncs')';
+contactList = table(channelNames, 'VariableNames', {'contact'});
 
-parfor i = 1:size(contactList,1) %would change this to "for" rather than "parfor" if you want to troubleshoot it
-    disp(['contact ' num2str(i) ' of ' num2str(size(contactList,1))])
-    curContact = contactList.contact{i};
-    collapData=[];
-    collapTime=[];
-    for j = 1:length(labels)
-        loadName =[dataPath curContact '_' labels{j} '.ncs'];
+eventFiles = dir(fullfile(dataPath, 'Events*.nev'));
+eventsColl = table();
+if ~isempty(eventFiles)
+    eventName = fullfile(dataPath, eventFiles(1).name);
+    eventsColl = struct2table(ft_read_event(eventName));
+end
 
-        data=ft_read_data(loadName); %ft toolbox for reading data and header
-        hdr = ft_read_header(loadName);
-        data=data*hdr.orig.ADBitVolts;
-        curTime=(((1:length(data))-1)/hdr.Fs);
-        curTime = hdr.orig.FirstTimeStamp+uint64(curTime*1e6);
+cfgFiles = dir(fullfile(dataPath, 'Condition_*.cfg'));
+cfgText = "";
+if ~isempty(cfgFiles)
+    cfgText = string(fileread(fullfile(dataPath, cfgFiles(1).name)));
+end
 
-        collapData=[collapData, data];
-        collapTime = [collapTime, curTime];
+%% Optional real-data time crop
+cropToWindow = nargin >= 4 && ~isempty(sessionDate) && ~isempty(timeStart) && ~isempty(timeStop);
+if cropToWindow
+    unixStart = uint64(1e6 * posixtime(datetime([sessionDate ' ' timeStart])));
+    unixEnd = uint64(1e6 * posixtime(datetime([sessionDate ' ' timeStop])));
+    if ~isempty(eventsColl) && ismember('timestamp', eventsColl.Properties.VariableNames)
+        eventsColl = eventsColl(eventsColl.timestamp >= unixStart & eventsColl.timestamp <= unixEnd, :);
     end
-    
-    collapTime=collapTime(collapTime>=unixStart & collapTime<=unixEnd);
-    collapData=collapData(collapTime>=unixStart & collapTime<=unixEnd);
+else
+    unixStart = uint64(0);
+    unixEnd = uint64(intmax('uint64'));
+end
 
-    globalTime(i,:)=collapTime;
-    globalData(i,:)=collapData;
+%% Load channel data
+globalData = cell(numel(ncsFiles), 1);
+globalTime = cell(numel(ncsFiles), 1);
+
+for i = 1:numel(ncsFiles)
+    loadName = fullfile(dataPath, ncsFiles(i).name);
+    data = ft_read_data(loadName);
+    hdr = ft_read_header(loadName);
+
+    data = data * hdr.orig.ADBitVolts;
+    curTime = (((1:length(data)) - 1) / hdr.Fs);
+    curTime = hdr.orig.FirstTimeStamp + uint64(curTime * 1e6);
+
+    keepIdx = curTime >= unixStart & curTime <= unixEnd;
+    globalTime{i} = curTime(keepIdx);
+    globalData{i} = data(keepIdx);
 end
 
 %% Compile data
-collData=struct();
-collData.time=globalTime(1,:);
-collData.events=eventsColl;
-collData.contactList=(contactList);
-collData.data=globalData;
-save([saveDir pt '.mat'], 'collData', '-v7.3')
+collData = struct();
+collData.dataDir = dataPath;
+collData.time = globalTime;
+collData.events = eventsColl;
+collData.contactList = contactList;
+collData.data = globalData;
+collData.conditionConfig = cfgText;
 
-%%
-struct2h5([saveDir pt '.h5'], collData);
+save(fullfile(saveDir, [pt '.mat']), 'collData', '-v7.3')
+
+if exist('struct2h5', 'file') == 2
+    struct2h5(fullfile(saveDir, [pt '.h5']), collData);
+else
+    warning('struct2h5 is not on the MATLAB path; skipped HDF5 export.');
+end
 end

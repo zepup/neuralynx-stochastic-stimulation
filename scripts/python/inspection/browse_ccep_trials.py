@@ -30,7 +30,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="neuralynx_io")
 # ============================================================
 # SETTINGS — edit these
 # ============================================================
-BASE_DIR         = "/Users/zephyrwang/Dropbox (Personal)/PatientData/byPatient/Epilepsy/PATIENT_ID/2026-03-15/stochasticStim"
+BASE_DIR         = "/path/to/PatientData/byPatient/Epilepsy/PATIENT_ID/2026-03-15/stochasticStim"
 STIM_PKL         = os.path.join(BASE_DIR, "stim_metadata.pkl")
 ANATOMY_XLSX     = os.path.join(BASE_DIR, "PATIENT_ID_2mm.xlsx")
 ANAT_CONTACT_COL = "contact"

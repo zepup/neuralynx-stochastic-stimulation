@@ -30,8 +30,8 @@ EVENTS_TABLE = data_path("Events_0029.csv")
 # Where the condition CFGs are stored.
 # Example values below are intentionally left as a working session example.
 CFG_BASE = {
-    "boxA": data_path("configs", "e0043UC_boxA", "config"),
-    "boxB": data_path("configs", "e0043UC_boxB_A", "config"),
+    "boxA": data_path("configs", "PATIENT_ID_boxA", "config"),
+    "boxB": data_path("configs", "PATIENT_ID_boxB_A", "config"),
 }
 
 SUBJECT = "SUBJECT_ID"
